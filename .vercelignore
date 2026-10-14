@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+*.db
+.git/
+test_workflow.py
+"dise_o_de_base_de_datos_y_scoring_crm_zapater_a.md"

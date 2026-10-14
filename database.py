@@ -1,9 +1,15 @@
 import sqlite3
 import os
+import tempfile
 from datetime import datetime, timedelta
 import random
 
-DB_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crm_zapateria.db")
+# En Vercel (serverless) el directorio del proyecto es de solo lectura,
+# solo /tmp es escribible. Usamos una ruta configurable para poder desplegar.
+_default_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crm_zapateria.db")
+if os.environ.get("VERCEL"):
+    _default_db = os.path.join(tempfile.gettempdir(), "crm_zapateria.db")
+DB_FILE = os.environ.get("CRM_DB_FILE", _default_db)
 
 def get_db():
     conn = sqlite3.connect(DB_FILE)
