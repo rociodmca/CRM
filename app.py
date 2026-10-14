@@ -1,10 +1,15 @@
-# pyrefly: ignore [missing-import]
+import os
 from flask import Flask, render_template, request, jsonify
 import sqlite3
 from datetime import datetime
 import database
 
-app = Flask(__name__, static_folder='public/static', template_folder='templates')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app = Flask(
+    __name__,
+    static_folder=os.path.join(BASE_DIR, 'public', 'static'),
+    template_folder=os.path.join(BASE_DIR, 'templates')
+)
 
 # Inicializar BD al arrancar
 database.init_db()
