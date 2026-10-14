@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 import database
 
-app = Flask(__name__, static_folder='static', template_folder='templates')
+app = Flask(__name__, static_folder='public/static', template_folder='templates')
 
 # Inicializar BD al arrancar
 database.init_db()
