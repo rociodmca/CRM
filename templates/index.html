@@ -1,0 +1,1455 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZapateriaCRM - Sistema de Gestión y Scoring RFM de Calzado</title>
+  <meta name="description" content="CRM inteligente especializado en zapaterías con control de tallas, preferencias de marca, inventario de variantes y segmentación automática de clientes mediante scoring RFM.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- APP CONTAINER -->
+  <div class="app-layout">
+    
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="mainSidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <div class="logo-icon"><i class="fa-solid fa-shoe-prints"></i></div>
+          <div class="logo-text">
+            <h2>Calza<span>CRM</span></h2>
+            <span class="logo-tag">Calzado & Scoring RFM</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" id="nav-clientes" onclick="switchTab('clientes')">
+          <i class="fa-solid fa-users"></i>
+          <span>Clientes & Scoring</span>
+          <span class="badge-pill" id="badgeTotalClientes">0</span>
+        </button>
+        <button class="nav-item" id="nav-matching" onclick="switchTab('matching')">
+          <i class="fa-solid fa-bullseye"></i>
+          <span>Match de Novedades</span>
+          <span class="badge-pill hot">TOP</span>
+        </button>
+        <button class="nav-item" id="nav-ventas" onclick="switchTab('ventas')">
+          <i class="fa-solid fa-cash-register"></i>
+          <span>Ventas & TPV</span>
+        </button>
+        <button class="nav-item" id="nav-catalogo" onclick="switchTab('catalogo')">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>Catálogo & Stock</span>
+        </button>
+        <button class="nav-item" id="nav-interacciones" onclick="switchTab('interacciones')">
+          <i class="fa-solid fa-comments"></i>
+          <span>Interacciones</span>
+        </button>
+        <button class="nav-item" id="nav-reglas" onclick="switchTab('reglas')">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Reglas de Scoring</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="store-badge">
+          <div class="status-indicator online"></div>
+          <div>
+            <p class="store-title">Zapatería Central</p>
+            <p class="store-subtitle">BD SQLite Activa</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <main class="main-content">
+      
+      <!-- TOP NAVBAR -->
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          
+          <div class="topbar-title-section">
+            <div class="breadcrumb-trail">
+              <i class="fa-solid fa-house"></i>
+              <span>Home</span>
+              <span class="breadcrumb-sep">›</span>
+              <span class="breadcrumb-current" id="breadcrumbCurrent">Sales Dashboard</span>
+            </div>
+
+            <div class="title-with-logo-mark">
+              <div class="brand-swoosh-mark">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                  <path d="M5 15C5 9.47715 9.47715 5 15 5C20.5228 5 25 9.47715 25 15C25 20.5228 20.5228 25 15 25C11 25 7 22 5 18" stroke="url(#swooshGradient)" stroke-width="4.5" stroke-linecap="round"/>
+                  <defs>
+                    <linearGradient id="swooshGradient" x1="5" y1="5" x2="25" y2="25" gradientUnits="userSpaceOnUse">
+                      <stop stop-color="#FF5E8E"/>
+                      <stop offset="1" stop-color="#6C5DD3"/>
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              <div class="page-title-group">
+                <h1 id="currentPageTitle">Sales Dashboard</h1>
+                <p class="page-subtitle" id="currentPageSubtitle">Gestión avanzada de clientes, preferencias de horma y tallas</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <div class="date-filter-pill">
+            <i class="fa-regular fa-calendar"></i>
+            <span>May 2 2026 – May 8 2026</span>
+            <button class="btn-check-pill" onclick="recalcularTodosScoring()" title="Recalcular métricas">Check</button>
+          </div>
+
+          <div class="global-quick-actions">
+            <button class="btn btn-secondary" onclick="recalcularTodosScoring()" title="Recalcular algoritmos RFM para todos los clientes">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Recalcular Scoring</span>
+            </button>
+            <button class="btn btn-primary" onclick="openNuevaVentaModal()">
+              <i class="fa-solid fa-cart-plus"></i>
+              <span>Nueva Venta</span>
+            </button>
+            <button class="btn btn-accent" onclick="openNuevoClienteModal()">
+              <i class="fa-solid fa-user-plus"></i>
+              <span>Alta Cliente</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- CONTENT BODY -->
+      <div class="content-body">
+
+        <!-- ==================== TAB: DASHBOARD ==================== -->
+        <section class="tab-pane active" id="pane-dashboard">
+          
+          <!-- KPIS ROW (6 CARDS MATCHING REFERENCE IMAGE) -->
+          <div class="kpi-grid-six">
+            <!-- Card 1: Ingresos Totales -->
+            <div class="kpi-stat-card">
+              <div class="kpi-card-header">
+                <h3 class="kpi-main-val" id="kpiTotalIngresos">-</h3>
+                <span class="kpi-period-tag">Today</span>
+              </div>
+              <div class="kpi-micro-stats">
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">new subs</span>
+                  <span class="micro-num">99</span>
+                </div>
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">funded</span>
+                  <span class="micro-num" id="kpiTotalVentasCount">87</span>
+                </div>
+              </div>
+              <div class="kpi-amber-highlight">
+                <span>120 add | 149 now</span>
+              </div>
+            </div>
+
+            <!-- Card 2: Ventas del Mes -->
+            <div class="kpi-stat-card">
+              <div class="kpi-card-header">
+                <h3 class="kpi-main-val" id="kpiVentasMes">-</h3>
+                <span class="kpi-period-tag">Today</span>
+              </div>
+              <div class="kpi-micro-stats">
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">new subs</span>
+                  <span class="micro-num">110</span>
+                </div>
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">funded</span>
+                  <span class="micro-num">90</span>
+                </div>
+              </div>
+              <div class="kpi-amber-highlight">
+                <span>99 add | 153 now</span>
+              </div>
+            </div>
+
+            <!-- Card 3: Ticket Medio -->
+            <div class="kpi-stat-card">
+              <div class="kpi-card-header">
+                <h3 class="kpi-main-val" id="kpiTicketMedio">-</h3>
+                <span class="kpi-period-tag">Today</span>
+              </div>
+              <div class="kpi-micro-stats">
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">new subs</span>
+                  <span class="micro-num">109</span>
+                </div>
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">funded</span>
+                  <span class="micro-num">131</span>
+                </div>
+              </div>
+              <div class="kpi-amber-highlight">
+                <span>116 add | 179 now</span>
+              </div>
+            </div>
+
+            <!-- Card 4: Total Clientes -->
+            <div class="kpi-stat-card">
+              <div class="kpi-card-header">
+                <h3 class="kpi-main-val" id="kpiTotalClientes">-</h3>
+                <span class="kpi-period-tag">Today</span>
+              </div>
+              <div class="kpi-micro-stats">
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">new subs</span>
+                  <span class="micro-num">123</span>
+                </div>
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">funded</span>
+                  <span class="micro-num">211</span>
+                </div>
+              </div>
+              <div class="kpi-amber-highlight">
+                <span>96 add | 154 now</span>
+              </div>
+            </div>
+
+            <!-- Card 5: Pares en Stock -->
+            <div class="kpi-stat-card">
+              <div class="kpi-card-header">
+                <h3 class="kpi-main-val" id="kpiStockTotal">48 Pares</h3>
+                <span class="kpi-period-tag">Today</span>
+              </div>
+              <div class="kpi-micro-stats">
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">new subs</span>
+                  <span class="micro-num">79</span>
+                </div>
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">funded</span>
+                  <span class="micro-num">90</span>
+                </div>
+              </div>
+              <div class="kpi-amber-highlight">
+                <span>98 add | 120 now</span>
+              </div>
+            </div>
+
+            <!-- Card 6: Retención RFM -->
+            <div class="kpi-stat-card">
+              <div class="kpi-card-header">
+                <h3 class="kpi-main-val" id="kpiFidelizacion">94.8%</h3>
+                <span class="kpi-period-tag">Today</span>
+              </div>
+              <div class="kpi-micro-stats">
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">new subs</span>
+                  <span class="micro-num">105</span>
+                </div>
+                <div class="micro-stat-row">
+                  <span class="micro-lbl">funded</span>
+                  <span class="micro-num">97</span>
+                </div>
+              </div>
+              <div class="kpi-amber-highlight">
+                <span>145 add | 160 now</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MIDDLE ROW: COMMUNICATION OVERVIEW, SALES STATISTICS, ARTWORK -->
+          <div class="dashboard-middle-row">
+            <!-- 1. Communication Overview -->
+            <div class="card card-communication-overview">
+              <div class="card-header-clean">
+                <h2 class="card-title-clean">Communication Overview</h2>
+                <div class="header-dropdown-pills">
+                  <span class="dropdown-pill">Department <i class="fa-solid fa-chevron-down"></i></span>
+                  <span class="dropdown-pill">Weekly <i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="card-body-comm">
+                <div class="comm-stats-list">
+                  <div class="comm-stat-item">
+                    <span class="comm-lbl">Phone Calls</span>
+                    <span class="pill-badge pill-yellow">3,496</span>
+                  </div>
+                  <div class="comm-stat-item">
+                    <span class="comm-lbl">Texts Sent</span>
+                    <span class="pill-badge pill-purple">988</span>
+                  </div>
+                  <div class="comm-stat-item">
+                    <span class="comm-lbl">Email Sent</span>
+                    <span class="pill-badge pill-pink">2,032</span>
+                  </div>
+                </div>
+
+                <!-- Donut Chart -->
+                <div class="comm-donut-container">
+                  <svg class="donut-chart-svg" width="130" height="130" viewBox="0 0 130 130">
+                    <circle cx="65" cy="65" r="48" fill="none" stroke="#F0F2FA" stroke-width="16"/>
+                    <!-- Yellow Segment: 54% -->
+                    <circle cx="65" cy="65" r="48" fill="none" stroke="#FFA927" stroke-width="16"
+                            stroke-dasharray="162 301" stroke-dashoffset="0" stroke-linecap="round"/>
+                    <!-- Purple Segment: 15% -->
+                    <circle cx="65" cy="65" r="48" fill="none" stroke="#6C5DD3" stroke-width="16"
+                            stroke-dasharray="45 301" stroke-dashoffset="-162" stroke-linecap="round"/>
+                    <!-- Pink Segment: 31% -->
+                    <circle cx="65" cy="65" r="48" fill="none" stroke="#FF5E8E" stroke-width="16"
+                            stroke-dasharray="94 301" stroke-dashoffset="-207" stroke-linecap="round"/>
+                  </svg>
+                  <div class="donut-center-text">
+                    <span class="donut-center-lbl">Total</span>
+                    <strong class="donut-center-val">6,496</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 2. Sales Statistics -->
+            <div class="card card-sales-statistics">
+              <div class="card-header-clean">
+                <h2 class="card-title-clean">Sales Statistics</h2>
+                <div class="header-dropdown-pills">
+                  <span class="dropdown-pill">Weekly <i class="fa-solid fa-chevron-down"></i></span>
+                </div>
+              </div>
+              <div class="sales-stats-grid">
+                <div class="stat-metric-cell">
+                  <span class="metric-big-pct color-yellow">32%</span>
+                  <span class="metric-sub-lbl">AVG Lead to Sub</span>
+                </div>
+                <div class="stat-metric-cell">
+                  <span class="metric-big-pct color-purple">17%</span>
+                  <span class="metric-sub-lbl">AVG Lead to Offer</span>
+                </div>
+                <div class="stat-metric-cell">
+                  <span class="metric-big-pct color-indigo">25%</span>
+                  <span class="metric-sub-lbl">AVG Offer to Fund</span>
+                </div>
+                <div class="stat-metric-cell">
+                  <span class="metric-big-pct color-pink">5%</span>
+                  <span class="metric-sub-lbl">AVG Lead to Fund</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Artwork Illustration Card -->
+            <div class="card card-artwork-illustration">
+              <div class="artwork-backdrop">
+                <svg width="220" height="170" viewBox="0 0 220 170" fill="none">
+                  <!-- Soft lilac & yellow background aura -->
+                  <circle cx="150" cy="110" r="60" fill="#FFF2BD" opacity="0.9"/>
+                  <circle cx="170" cy="90" r="45" fill="#E8EBFC" opacity="0.8"/>
+                  <path d="M120 160C140 120 190 120 210 160Z" fill="#FFA927" opacity="0.3"/>
+                  
+                  <!-- Floating Gold Coins/Sparkles -->
+                  <circle cx="60" cy="35" r="9" fill="#FFC542"/>
+                  <circle cx="60" cy="35" r="6" fill="#FFA927"/>
+                  <circle cx="185" cy="40" r="11" fill="#FFC542"/>
+                  <circle cx="185" cy="40" r="7.5" fill="#FFA927"/>
+                  <circle cx="160" cy="20" r="6" fill="#FFC542"/>
+                  <circle cx="195" cy="75" r="7" fill="#FFC542"/>
+                  
+                  <!-- Character body -->
+                  <path d="M100 85L120 165H165L178 120L150 85H100Z" fill="#F4F6FD"/>
+                  <!-- Yellow tie -->
+                  <path d="M128 92L132 145L127 155L122 145L126 92Z" fill="#FFA927"/>
+                  <!-- Arms and tablet -->
+                  <path d="M90 95L108 135L130 130" stroke="#FFD8B5" stroke-width="12" stroke-linecap="round"/>
+                  <path d="M150 95L145 130" stroke="#FFD8B5" stroke-width="11" stroke-linecap="round"/>
+                  <rect x="122" y="105" width="28" height="38" rx="4" fill="#6C5DD3"/>
+                  <line x1="128" y1="115" x2="144" y2="115" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="128" y1="122" x2="140" y2="122" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round"/>
+                  <!-- Head and blue/indigo beard & hair -->
+                  <circle cx="125" cy="65" r="14" fill="#FFD8B5"/>
+                  <path d="M112 60C112 50 120 44 132 46C140 48 143 55 141 62C140 64 135 66 135 70C135 76 130 81 122 81C115 81 112 75 112 68Z" fill="#4D6EF5"/>
+                  <path d="M122 68C126 68 133 67 136 62C133 72 128 75 122 75Z" fill="#FF5E8E" opacity="0.3"/>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- LOWER ROW: LEADERBOARD OF TOP PERFORMERS & FLOATING SALES TRENDS CARD -->
+          <div class="dashboard-lower-row">
+            <!-- Leaderboard Cards -->
+            <div class="leaderboard-cards-container">
+              <!-- Performer 1 -->
+              <div class="card performer-card">
+                <div class="performer-rank-badge">1</div>
+                <div class="performer-avatar">
+                  <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&h=120&q=80" alt="Judith Russell">
+                </div>
+                <div class="performer-info">
+                  <h4 class="performer-name">Judith Russell</h4>
+                  <div class="performer-rating">
+                    <i class="fa-solid fa-star"></i> <span>4.9</span>
+                  </div>
+                </div>
+                <div class="performer-metrics">
+                  <div class="metric-col">
+                    <span class="p-lbl">L/T Sub</span>
+                    <span class="p-val">27%</span>
+                  </div>
+                  <div class="metric-col">
+                    <span class="p-lbl">Subs</span>
+                    <span class="p-val">15</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Performer 2 -->
+              <div class="card performer-card">
+                <div class="performer-rank-badge">2</div>
+                <div class="performer-avatar">
+                  <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&h=120&q=80" alt="Priscilla Pena">
+                </div>
+                <div class="performer-info">
+                  <h4 class="performer-name">Priscilla Pena</h4>
+                  <div class="performer-rating">
+                    <i class="fa-solid fa-star"></i> <span>4.9</span>
+                  </div>
+                </div>
+                <div class="performer-metrics">
+                  <div class="metric-col">
+                    <span class="p-lbl">L/T Sub</span>
+                    <span class="p-val">27%</span>
+                  </div>
+                  <div class="metric-col">
+                    <span class="p-lbl">Subs</span>
+                    <span class="p-val">15</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Performer 3 -->
+              <div class="card performer-card">
+                <div class="performer-rank-badge">3</div>
+                <div class="performer-avatar">
+                  <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=120&h=120&q=80" alt="Carlos Mendoza">
+                </div>
+                <div class="performer-info">
+                  <h4 class="performer-name">Carlos Mendoza</h4>
+                  <div class="performer-rating">
+                    <i class="fa-solid fa-star"></i> <span>4.8</span>
+                  </div>
+                </div>
+                <div class="performer-metrics">
+                  <div class="metric-col">
+                    <span class="p-lbl">L/T Sub</span>
+                    <span class="p-val">24%</span>
+                  </div>
+                  <div class="metric-col">
+                    <span class="p-lbl">Subs</span>
+                    <span class="p-val">12</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Floating Sales Trends Card -->
+            <div class="card card-sales-trends-overlay">
+              <div class="trends-header">
+                <h3 class="trends-title">Sales Trends</h3>
+                <span class="dropdown-pill">Annual <i class="fa-solid fa-chevron-down"></i></span>
+              </div>
+
+              <!-- Stacked Bar Chart with Popup Tooltip -->
+              <div class="trends-chart-wrapper">
+                <!-- Popup Tooltip Box (like August '20) -->
+                <div class="chart-tooltip-box">
+                  <span class="tooltip-date">August '26</span>
+                  <div class="tooltip-row">
+                    <span class="tt-lbl">New</span>
+                    <span class="tt-val tt-yellow">1,678.90 €</span>
+                  </div>
+                  <div class="tooltip-row">
+                    <span class="tt-lbl">Addon</span>
+                    <span class="tt-val tt-purple">1,678.90 €</span>
+                  </div>
+                  <div class="tooltip-row">
+                    <span class="tt-lbl">Renewal</span>
+                    <span class="tt-val tt-pink">1,678.90 €</span>
+                  </div>
+                  <div class="tooltip-divider"></div>
+                  <div class="tooltip-row tt-total">
+                    <span class="tt-lbl">Total</span>
+                    <span class="tt-val">5,036.70 €</span>
+                  </div>
+                </div>
+
+                <!-- Stacked Bars -->
+                <div class="stacked-bars-group">
+                  <div class="bar-col">
+                    <div class="bar-seg seg-yellow" style="height: 18px;"></div>
+                    <div class="bar-seg seg-pink" style="height: 24px;"></div>
+                    <div class="bar-seg seg-purple" style="height: 38px;"></div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar-seg seg-yellow" style="height: 26px;"></div>
+                    <div class="bar-seg seg-pink" style="height: 28px;"></div>
+                    <div class="bar-seg seg-purple" style="height: 48px;"></div>
+                  </div>
+                  <div class="bar-col active-month">
+                    <div class="bar-seg seg-yellow" style="height: 34px;"></div>
+                    <div class="bar-seg seg-pink" style="height: 32px;"></div>
+                    <div class="bar-seg seg-purple" style="height: 54px;"></div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar-seg seg-yellow" style="height: 22px;"></div>
+                    <div class="bar-seg seg-pink" style="height: 30px;"></div>
+                    <div class="bar-seg seg-purple" style="height: 44px;"></div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar-seg seg-yellow" style="height: 28px;"></div>
+                    <div class="bar-seg seg-pink" style="height: 24px;"></div>
+                    <div class="bar-seg seg-purple" style="height: 40px;"></div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar-seg seg-yellow" style="height: 32px;"></div>
+                    <div class="bar-seg seg-pink" style="height: 28px;"></div>
+                    <div class="bar-seg seg-purple" style="height: 46px;"></div>
+                  </div>
+                  <div class="bar-col">
+                    <div class="bar-seg seg-yellow" style="height: 24px;"></div>
+                    <div class="bar-seg seg-pink" style="height: 26px;"></div>
+                    <div class="bar-seg seg-purple" style="height: 36px;"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Legend -->
+              <div class="trends-legend">
+                <span class="legend-item"><span class="dot dot-yellow"></span> New Funding</span>
+                <span class="legend-item"><span class="dot dot-purple"></span> Stock/Addon</span>
+                <span class="legend-item"><span class="dot dot-pink"></span> Renewal</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SEGMENTOS RFM HERO & STOCK ALERT -->
+          <div class="dashboard-columns">
+            
+            <!-- Segmentación RFM -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title"><i class="fa-solid fa-medal text-gold"></i> Segmentación de Clientes por Scoring RFM</h2>
+                  <p class="card-description">Clasificación automática según Recencia, Frecuencia de compra y Monto acumulado</p>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="switchTab('reglas')">
+                  <i class="fa-solid fa-sliders"></i> Ver Baremos
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="rfm-distribution-grid" id="rfmSegmentsContainer">
+                  <!-- Injected via JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Alertas de Stock Bajo -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title"><i class="fa-solid fa-triangle-exclamation text-rose"></i> Alerta de Tallas Agotadas / Stock Crítico</h2>
+                  <p class="card-description">Variantes con 2 o menos unidades para reposición inmediata</p>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="switchTab('catalogo')">
+                  <i class="fa-solid fa-boxes-stacked"></i> Catálogo
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="stock-alert-list" id="stockAlertsContainer">
+                  <!-- Injected via JS -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- DOS COLUMNAS: ÚLTIMAS VENTAS Y CUMPLEAÑOS / INTERACCIONES -->
+          <div class="dashboard-columns mt-4">
+            
+            <!-- Últimas Ventas -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title"><i class="fa-solid fa-clock-rotate-left text-purple"></i> Últimas Ventas en Tienda</h2>
+                  <p class="card-description">Tickets recientes con cliente y scoring asociado</p>
+                </div>
+                <button class="btn btn-sm btn-outline" onclick="switchTab('ventas')">Ver Todas</button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Segmento RFM</th>
+                        <th>Método</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ultimasVentasTableBody">
+                      <!-- Injected via JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Campañas y Cumpleaños -->
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title"><i class="fa-solid fa-cake-candles text-amber"></i> Oportunidades Comerciales & Cumpleaños</h2>
+                  <p class="card-description">Fidelización personalizada por fecha y avisos pendientes</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="campaign-opportunities" id="cumpleanosList">
+                  <!-- Injected via JS -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ==================== TAB: CLIENTES ==================== -->
+        <section class="tab-pane" id="pane-clientes">
+          
+          <!-- BARRA DE FILTROS Y BÚSQUEDA -->
+          <div class="filters-bar card">
+            <div class="filter-group-row">
+              <div class="search-input-wrapper">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="filtroSearch" placeholder="Buscar por nombre, teléfono, email..." oninput="debounceFiltrarClientes()">
+              </div>
+
+              <div class="filter-select-wrapper">
+                <label for="filtroCategoria">Categoría RFM:</label>
+                <select id="filtroCategoria" onchange="cargarClientes()">
+                  <option value="">Todas las categorías</option>
+                  <option value="VIP / Cliente TOP">👑 VIP / Cliente TOP (13-15 pts)</option>
+                  <option value="Cliente Frecuente">⭐ Cliente Frecuente (10-12 pts)</option>
+                  <option value="Cliente Dormido">💤 Cliente Dormido (7-9 pts)</option>
+                  <option value="En Riesgo / Ocasional">⚠️ En Riesgo / Ocasional (3-6 pts)</option>
+                </select>
+              </div>
+
+              <div class="filter-select-wrapper">
+                <label for="filtroTalla">Talla Habitual:</label>
+                <select id="filtroTalla" onchange="cargarClientes()">
+                  <option value="">Cualquier talla</option>
+                  <option value="36">36</option>
+                  <option value="37">37</option>
+                  <option value="38">38</option>
+                  <option value="39">39</option>
+                  <option value="40">40</option>
+                  <option value="41">41</option>
+                  <option value="42">42</option>
+                  <option value="43">43</option>
+                  <option value="44">44</option>
+                  <option value="45">45</option>
+                </select>
+              </div>
+
+              <div class="filter-select-wrapper">
+                <label for="filtroMarca">Marca Favorita:</label>
+                <input type="text" id="filtroMarca" placeholder="Ej. Pikolinos, Clarks..." oninput="debounceFiltrarClientes()">
+              </div>
+
+              <button class="btn btn-secondary btn-icon" onclick="limpiarFiltrosClientes()" title="Limpiar filtros">
+                <i class="fa-solid fa-filter-circle-xmark"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- TABLA DE CLIENTES -->
+          <div class="card glass-card mt-3">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title"><i class="fa-solid fa-id-card"></i> Directorio de Clientes & Preferencias de Horma</h2>
+                <p class="card-description">Historial de scoring y preferencias por tipo de calzado</p>
+              </div>
+              <div class="header-tools">
+                <span class="count-badge" id="clientesCountBadge">Cargando...</span>
+                <button class="btn btn-accent btn-sm" onclick="openNuevoClienteModal()">
+                  <i class="fa-solid fa-user-plus"></i> Añadir Cliente
+                </button>
+              </div>
+            </div>
+
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Contacto</th>
+                      <th>Categoría RFM</th>
+                      <th>Score (R + F + M)</th>
+                      <th>Tallas & Marcas Preferidas</th>
+                      <th>Observaciones</th>
+                      <th class="text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody id="clientesTableBody">
+                    <!-- Injected via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ==================== TAB: MATCHING NOVEDADES ==================== -->
+        <section class="tab-pane" id="pane-matching">
+          
+          <div class="matching-hero card">
+            <div class="matching-hero-content">
+              <div class="matching-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> Herramienta Estrella Zapatería</div>
+              <h2>Encuentra al Cliente Ideal para un Calzado Nuevo</h2>
+              <p>¿Acaba de llegar una partida de zapatos o una talla especial a la tienda? Selecciona las características del modelo y el sistema localizará al instante qué clientes usan esa talla y adoran esa marca, priorizando a tus clientes VIP y Frecuentes para ofrecerles una venta garantizada.</p>
+            </div>
+
+            <div class="matching-form-box">
+              <div class="matching-inputs">
+                <div class="form-group">
+                  <label for="matchTalla"><i class="fa-solid fa-shoe-prints"></i> Talla del Zapato</label>
+                  <select id="matchTalla" onchange="ejecutarMatching()">
+                    <option value="">Selecciona talla...</option>
+                    <option value="36">Talla 36</option>
+                    <option value="37">Talla 37</option>
+                    <option value="38" selected>Talla 38</option>
+                    <option value="39">Talla 39</option>
+                    <option value="40">Talla 40</option>
+                    <option value="41">Talla 41</option>
+                    <option value="42">Talla 42</option>
+                    <option value="43">Talla 43</option>
+                    <option value="44">Talla 44</option>
+                    <option value="45">Talla 45</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label for="matchMarca"><i class="fa-solid fa-tag"></i> Marca</label>
+                  <input type="text" id="matchMarca" placeholder="Ej. Pikolinos, Clarks, Nike..." value="Pikolinos" oninput="ejecutarMatching()">
+                </div>
+
+                <div class="form-group">
+                  <label for="matchCategoria"><i class="fa-solid fa-layer-group"></i> Estilo / Categoría</label>
+                  <select id="matchCategoria" onchange="ejecutarMatching()">
+                    <option value="">Cualquier estilo</option>
+                    <option value="Casual" selected>Casual</option>
+                    <option value="Deportivo">Deportivo</option>
+                    <option value="Fiesta">Fiesta / Tacón</option>
+                    <option value="Botas">Botas / Invierno</option>
+                    <option value="Confort">Confort / Anatómico</option>
+                    <option value="Infantil">Infantil</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="matching-actions">
+                <button class="btn btn-primary" onclick="ejecutarMatching()">
+                  <i class="fa-solid fa-magnifying-glass"></i> Buscar Clientes Compatibles
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- RESULTADOS MATCHING -->
+          <div class="card glass-card mt-4">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title"><i class="fa-solid fa-bullseye text-accent"></i> Clientes Compatibles Encontrados</h2>
+                <p class="card-description">Ordenados por Score RFM para priorizar la comunicación comercial</p>
+              </div>
+              <span class="count-badge" id="matchResultsCount">0 clientes</span>
+            </div>
+            <div class="card-body">
+              <div class="match-results-grid" id="matchResultsGrid">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ==================== TAB: VENTAS / TPV ==================== -->
+        <section class="tab-pane" id="pane-ventas">
+          
+          <div class="dashboard-columns">
+            
+            <!-- LISTADO HISTÓRICO DE VENTAS -->
+            <div class="card glass-card" style="flex: 2;">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title"><i class="fa-solid fa-receipt"></i> Historial de Tickets y Transacciones</h2>
+                  <p class="card-description">Registro de todas las compras con variantes de tallas y método de pago</p>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="openNuevaVentaModal()">
+                  <i class="fa-solid fa-plus"></i> Registrar Venta
+                </button>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Nº Ticket</th>
+                        <th>Fecha</th>
+                        <th>Cliente</th>
+                        <th>Artículos & Tallas</th>
+                        <th>Pago</th>
+                        <th>Importe</th>
+                        <th class="text-right">Detalle</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ventasTableBody">
+                      <!-- Injected via JS -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- PANEL INFORMATIVO DEL IMPACTO EN EL SCORING -->
+            <div class="card glass-card" style="flex: 1;">
+              <div class="card-header">
+                <div>
+                  <h2 class="card-title"><i class="fa-solid fa-bolt text-gold"></i> Motor RFM en Vivo</h2>
+                  <p class="card-description">¿Cómo afecta cada venta al cliente?</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="scoring-explanation-box">
+                  <div class="step-item">
+                    <div class="step-num">1</div>
+                    <div class="step-text">
+                      <strong>Recencia se renueva:</strong> Al registrar una venta hoy, los días de recencia del cliente pasan a 0, garantizándole <strong>5 puntos</strong> de recencia (Activo).
+                    </div>
+                  </div>
+                  <div class="step-item">
+                    <div class="step-num">2</div>
+                    <div class="step-text">
+                      <strong>Frecuencia aumenta:</strong> El contador total de tickets sube +1, empujando al cliente hacia el tramo de 4 o 5 puntos.
+                    </div>
+                  </div>
+                  <div class="step-item">
+                    <div class="step-num">3</div>
+                    <div class="step-text">
+                      <strong>Monto acumulado:</strong> El importe de la venta se suma a su historial. Superar los 400 € le otorga 5 puntos máximos.
+                    </div>
+                  </div>
+                  <div class="step-item">
+                    <div class="step-num">4</div>
+                    <div class="step-text">
+                      <strong>Promoción de Segmento:</strong> Si alcanza 13 puntos pasa automáticamente a <strong>VIP / TOP</strong> con acciones exclusivas.
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-4 text-center">
+                  <button class="btn btn-outline btn-block" onclick="switchTab('clientes')">
+                    <i class="fa-solid fa-users"></i> Explorar Clientes Actuales
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+        <!-- ==================== TAB: CATÁLOGO & STOCK ==================== -->
+        <section class="tab-pane" id="pane-catalogo">
+          
+          <div class="card glass-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title"><i class="fa-solid fa-shoe-prints"></i> Modelos de Calzado & Variantes de Stock</h2>
+                <p class="card-description">Control de inventario por modelo, marca, talla, color y SKU</p>
+              </div>
+              <div class="header-tools">
+                <button class="btn btn-accent btn-sm" onclick="openNuevoProductoModal()">
+                  <i class="fa-solid fa-plus"></i> Nuevo Modelo
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="products-grid" id="productosCatalogGrid">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ==================== TAB: INTERACCIONES ==================== -->
+        <section class="tab-pane" id="pane-interacciones">
+          
+          <div class="card glass-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title"><i class="fa-solid fa-comments"></i> Registro de Interacciones & Atención al Cliente</h2>
+                <p class="card-description">Avisos de tallas agotadas, campañas de WhatsApp, consultas y felicitaciones</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openNuevaInteraccionModal()">
+                <i class="fa-solid fa-plus"></i> Registrar Contacto
+              </button>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Cliente</th>
+                      <th>Tipo de Interacción</th>
+                      <th>Comentarios & Detalles</th>
+                      <th class="text-right">Acción</th>
+                    </tr>
+                  </thead>
+                  <tbody id="interaccionesTableBody">
+                    <!-- Injected via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- ==================== TAB: REGLAS DE SCORING ==================== -->
+        <section class="tab-pane" id="pane-reglas">
+          
+          <div class="card glass-card">
+            <div class="card-header">
+              <div>
+                <h2 class="card-title"><i class="fa-solid fa-sliders"></i> Baremos y Reglas Configurables del Algoritmo RFM</h2>
+                <p class="card-description">Parámetros oficiales del sistema extraídos del diseño de base de datos</p>
+              </div>
+              <button class="btn btn-secondary btn-sm" onclick="recalcularTodosScoring()">
+                <i class="fa-solid fa-arrows-rotate"></i> Ejecutar Recálculo Global
+              </button>
+            </div>
+            <div class="card-body">
+              
+              <div class="scoring-rules-layout">
+                <!-- Reglas Recencia -->
+                <div class="rules-block">
+                  <div class="rules-block-header">
+                    <span class="badge-tag tag-blue"><i class="fa-solid fa-clock"></i> Criterio A: Recencia</span>
+                    <h4>Días transcurridos desde la última compra</h4>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="data-table rules-table">
+                      <thead>
+                        <tr>
+                          <th>Rango (Días)</th>
+                          <th>Puntos</th>
+                          <th>Descripción</th>
+                        </tr>
+                      </thead>
+                      <tbody id="reglasRecenciaBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Reglas Frecuencia -->
+                <div class="rules-block">
+                  <div class="rules-block-header">
+                    <span class="badge-tag tag-purple"><i class="fa-solid fa-basket-shopping"></i> Criterio B: Frecuencia</span>
+                    <h4>Número de compras realizadas</h4>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="data-table rules-table">
+                      <thead>
+                        <tr>
+                          <th>Rango (Compras)</th>
+                          <th>Puntos</th>
+                          <th>Descripción</th>
+                        </tr>
+                      </thead>
+                      <tbody id="reglasFrecuenciaBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Reglas Monto -->
+                <div class="rules-block">
+                  <div class="rules-block-header">
+                    <span class="badge-tag tag-emerald"><i class="fa-solid fa-coins"></i> Criterio C: Monto</span>
+                    <h4>Gasto acumulado total (€)</h4>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="data-table rules-table">
+                      <thead>
+                        <tr>
+                          <th>Rango (€)</th>
+                          <th>Puntos</th>
+                          <th>Descripción</th>
+                        </tr>
+                      </thead>
+                      <tbody id="reglasMontoBody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tabla de Categorías Oficiales -->
+              <div class="mt-4">
+                <h3 class="mb-3"><i class="fa-solid fa-sitemap"></i> Matriz de Segmentos y Estrategia Comercial Aplicada</h3>
+                <div class="table-responsive">
+                  <table class="data-table">
+                    <thead>
+                      <tr>
+                        <th>Puntuación Total</th>
+                        <th>Categoría</th>
+                        <th>Estrategia Comercial Establecida</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><span class="score-badge score-vip">13 a 15 pts</span></td>
+                        <td><strong>VIP / Cliente TOP</strong></td>
+                        <td>Venta privada anticipada, eventos exclusivos y atención prioritaria personalizada.</td>
+                      </tr>
+                      <tr>
+                        <td><span class="score-badge score-frecuente">10 a 12 pts</span></td>
+                        <td><strong>Cliente Frecuente</strong></td>
+                        <td>Avisos automatizados al recibir stock nuevo de su marca y talla preferida.</td>
+                      </tr>
+                      <tr>
+                        <td><span class="score-badge score-dormido">7 a 9 pts</span></td>
+                        <td><strong>Cliente Dormido</strong></td>
+                        <td>Notificaciones al inicio de temporada (primavera/otoño) con incentivo suave.</td>
+                      </tr>
+                      <tr>
+                        <td><span class="score-badge score-riesgo">3 a 6 pts</span></td>
+                        <td><strong>En Riesgo / Ocasional</strong></td>
+                        <td>Cupón directo de descuento para fomentar el retorno a la zapatería.</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== MODALES ==================== -->
+
+  <!-- MODAL: DETALLE COMPLETO DEL CLIENTE -->
+  <div class="modal-overlay" id="modalClienteDetalle" onclick="closeModalOnBackdrop(event, 'modalClienteDetalle')">
+    <div class="modal-content modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="user-avatar-lg" id="modalClienteAvatar">EG</div>
+          <div>
+            <h2 id="modalClienteNombre">Nombre Cliente</h2>
+            <span class="rfm-badge-pill" id="modalClienteBadge">VIP</span>
+          </div>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('modalClienteDetalle')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- FICHA RFM DESTACADA -->
+        <div class="client-rfm-summary-card" id="modalClientRfmCard">
+          <!-- Injected via JS -->
+        </div>
+
+        <!-- ESTRATEGIA COMERCIAL RECOMENDADA -->
+        <div class="commercial-strategy-banner" id="modalStrategyBanner">
+          <!-- Injected via JS -->
+        </div>
+
+        <!-- PESTAÑAS INTERNAS DEL CLIENTE -->
+        <div class="sub-tabs">
+          <button class="sub-tab-btn active" onclick="switchClientSubTab('info')"><i class="fa-solid fa-address-book"></i> Datos & Preferencias</button>
+          <button class="sub-tab-btn" onclick="switchClientSubTab('compras')"><i class="fa-solid fa-bag-shopping"></i> Compras (<span id="modalClienteComprasCount">0</span>)</button>
+          <button class="sub-tab-btn" onclick="switchClientSubTab('interacciones')"><i class="fa-solid fa-comments"></i> Contactos (<span id="modalClienteInteraccionesCount">0</span>)</button>
+        </div>
+
+        <!-- SUBTAB: INFO Y PREFERENCIAS -->
+        <div class="sub-pane active" id="subpane-info">
+          <div class="two-columns-grid">
+            <div class="card p-3">
+              <h4 class="section-subtitle"><i class="fa-solid fa-user"></i> Datos Personales</h4>
+              <div class="data-pair"><span>Teléfono:</span> <strong id="modalClienteTelefono">-</strong></div>
+              <div class="data-pair"><span>Email:</span> <strong id="modalClienteEmail">-</strong></div>
+              <div class="data-pair"><span>Fecha Nacimiento:</span> <strong id="modalClienteNacimiento">-</strong></div>
+              <div class="data-pair"><span>Observaciones horma/pie:</span> <p id="modalClienteObservaciones" class="text-muted mt-1">-</p></div>
+              <div class="mt-3">
+                <button class="btn btn-sm btn-outline" id="btnEditarClienteModal" onclick="openEditarClienteModal()"><i class="fa-solid fa-pen-to-square"></i> Editar Datos</button>
+              </div>
+            </div>
+
+            <div class="card p-3">
+              <div class="d-flex justify-between align-center mb-2">
+                <h4 class="section-subtitle mb-0"><i class="fa-solid fa-shoe-prints"></i> Preferencias de Calzado</h4>
+                <button class="btn btn-sm btn-accent" onclick="openNuevaPreferenciaModal()"><i class="fa-solid fa-plus"></i> Añadir</button>
+              </div>
+              <p class="text-xs text-muted mb-2">Tallas habituales y marcas preferidas por categoría</p>
+              <div class="preferences-badges-list" id="modalClientePreferenciasList">
+                <!-- Injected via JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUBTAB: HISTORIAL DE COMPRAS -->
+        <div class="sub-pane" id="subpane-compras">
+          <div class="client-history-list" id="modalClienteComprasHistory">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
+        <!-- SUBTAB: HISTORIAL DE INTERACCIONES -->
+        <div class="sub-pane" id="subpane-interacciones">
+          <div class="d-flex justify-between align-center mb-3">
+            <h4 class="section-subtitle mb-0">Contactos Realizados</h4>
+            <button class="btn btn-sm btn-primary" onclick="openNuevaInteraccionClienteModal()"><i class="fa-solid fa-plus"></i> Nuevo Contacto</button>
+          </div>
+          <div class="timeline" id="modalClienteTimeline">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="recalcularClienteScoring()"><i class="fa-solid fa-arrows-rotate"></i> Recalcular RFM de este cliente</button>
+        <button class="btn btn-outline" onclick="closeModal('modalClienteDetalle')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVA VENTA / TPV RÁPIDO -->
+  <div class="modal-overlay" id="modalNuevaVenta" onclick="closeModalOnBackdrop(event, 'modalNuevaVenta')">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-cash-register text-emerald"></i> Registrar Nueva Venta en Tienda</h2>
+        <button class="modal-close-btn" onclick="closeModal('modalNuevaVenta')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNuevaVenta" onsubmit="guardarNuevaVenta(event)">
+          
+          <div class="form-group">
+            <label for="ventaClienteSelect">Cliente Comprador *</label>
+            <select id="ventaClienteSelect" required class="form-control" onchange="onClienteSeleccionadoVenta()">
+              <option value="">Selecciona cliente...</option>
+              <!-- Injected via JS -->
+            </select>
+            <span class="text-xs text-muted" id="ventaClienteInfoHint">Selecciona un cliente para registrar la compra</span>
+          </div>
+
+          <div class="card p-3 mb-3 bg-subtle">
+            <h4 class="text-sm font-semibold mb-2"><i class="fa-solid fa-shoe-prints"></i> Añadir Par de Zapatos al Ticket</h4>
+            
+            <div class="form-group">
+              <label for="ventaVarianteSelect">Modelo, Talla, Color y Stock Disponible *</label>
+              <select id="ventaVarianteSelect" class="form-control" onchange="actualizarPrecioVentaItem()">
+                <option value="">Selecciona variante en stock...</option>
+                <!-- Injected via JS -->
+              </select>
+            </div>
+
+            <div class="two-columns-grid">
+              <div class="form-group">
+                <label for="ventaCantidad">Cantidad (Pares)</label>
+                <input type="number" id="ventaCantidad" class="form-control" min="1" value="1" oninput="actualizarPrecioVentaItem()">
+              </div>
+              <div class="form-group">
+                <label for="ventaPrecioUnitario">Precio Unitario (€)</label>
+                <input type="number" id="ventaPrecioUnitario" class="form-control" step="0.01" min="0">
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-sm btn-secondary btn-block mt-2" onclick="agregarItemTicket()">
+              <i class="fa-solid fa-cart-plus"></i> Añadir a la cesta del ticket
+            </button>
+          </div>
+
+          <!-- CESTA DE ITEMS -->
+          <div class="mb-3">
+            <label class="form-label font-semibold">Artículos en este Ticket:</label>
+            <div class="ticket-items-list" id="ticketItemsList">
+              <p class="text-sm text-muted py-2 text-center">No hay artículos añadidos todavía.</p>
+            </div>
+            <div class="ticket-total-bar mt-2">
+              <span>Total a Cobrar:</span>
+              <strong id="ticketTotalImporte">0.00 €</strong>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="ventaMetodoPago">Método de Pago *</label>
+            <select id="ventaMetodoPago" class="form-control" required>
+              <option value="Tarjeta" selected>Tarjeta Bancaria</option>
+              <option value="Efectivo">Efectivo</option>
+              <option value="Bizum">Bizum</option>
+              <option value="Transferencia">Transferencia</option>
+            </select>
+          </div>
+
+          <div class="modal-footer px-0 pb-0">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modalNuevaVenta')">Cancelar</button>
+            <button type="submit" class="btn btn-emerald" id="btnFinalizarVenta" disabled>
+              <i class="fa-solid fa-check"></i> Cobrar y Actualizar Scoring RFM
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVO CLIENTE -->
+  <div class="modal-overlay" id="modalNuevoCliente" onclick="closeModalOnBackdrop(event, 'modalNuevoCliente')">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-user-plus text-accent"></i> Alta de Nuevo Cliente</h2>
+        <button class="modal-close-btn" onclick="closeModal('modalNuevoCliente')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNuevoCliente" onsubmit="guardarNuevoCliente(event)">
+          
+          <div class="form-group">
+            <label for="nuevoNombre">Nombre Completo *</label>
+            <input type="text" id="nuevoNombre" class="form-control" placeholder="Ej. Ana Fernández García" required>
+          </div>
+
+          <div class="two-columns-grid">
+            <div class="form-group">
+              <label for="nuevoTelefono">Teléfono / WhatsApp</label>
+              <input type="text" id="nuevoTelefono" class="form-control" placeholder="600123456">
+            </div>
+            <div class="form-group">
+              <label for="nuevoEmail">Email</label>
+              <input type="email" id="nuevoEmail" class="form-control" placeholder="ana@email.com">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="nuevoNacimiento">Fecha de Nacimiento</label>
+            <input type="date" id="nuevoNacimiento" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label for="nuevoObservaciones">Observaciones de Calzado / Horma</label>
+            <textarea id="nuevoObservaciones" class="form-control" rows="2" placeholder="Ej. Pie estrecho, suele llevar plantillas, horma ancha..."></textarea>
+          </div>
+
+          <div class="card p-3 bg-subtle mb-3">
+            <h4 class="text-sm font-semibold mb-2"><i class="fa-solid fa-star"></i> Preferencia de Calzado Inicial (Opcional)</h4>
+            <div class="three-columns-grid">
+              <div class="form-group mb-0">
+                <label for="nuevoPrefCat">Categoría</label>
+                <select id="nuevoPrefCat" class="form-control">
+                  <option value="Casual">Casual</option>
+                  <option value="Deportivo">Deportivo</option>
+                  <option value="Fiesta">Fiesta</option>
+                  <option value="Botas">Botas</option>
+                  <option value="Confort">Confort</option>
+                  <option value="Infantil">Infantil</option>
+                </select>
+              </div>
+              <div class="form-group mb-0">
+                <label for="nuevoPrefTalla">Talla</label>
+                <input type="text" id="nuevoPrefTalla" class="form-control" placeholder="Ej. 38">
+              </div>
+              <div class="form-group mb-0">
+                <label for="nuevoPrefMarca">Marca Favorita</label>
+                <input type="text" id="nuevoPrefMarca" class="form-control" placeholder="Ej. Pikolinos">
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer px-0 pb-0">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modalNuevoCliente')">Cancelar</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar Cliente</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVA PREFERENCIA -->
+  <div class="modal-overlay" id="modalNuevaPreferencia" onclick="closeModalOnBackdrop(event, 'modalNuevaPreferencia')">
+    <div class="modal-content modal-sm">
+      <div class="modal-header">
+        <h3>Añadir Preferencia de Calzado</h3>
+        <button class="modal-close-btn" onclick="closeModal('modalNuevaPreferencia')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNuevaPreferencia" onsubmit="guardarNuevaPreferencia(event)">
+          <div class="form-group">
+            <label for="prefCat">Categoría de Calzado</label>
+            <select id="prefCat" class="form-control" required>
+              <option value="Casual">Casual</option>
+              <option value="Deportivo">Deportivo</option>
+              <option value="Fiesta">Fiesta / Tacón</option>
+              <option value="Botas">Botas / Invierno</option>
+              <option value="Confort">Confort / Anatómico</option>
+              <option value="Infantil">Infantil</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="prefTalla">Talla Habitual *</label>
+            <input type="text" id="prefTalla" class="form-control" placeholder="Ej. 38" required>
+          </div>
+          <div class="form-group">
+            <label for="prefMarca">Marca Favorita</label>
+            <input type="text" id="prefMarca" class="form-control" placeholder="Ej. Clarks, Pikolinos, Nike">
+          </div>
+          <div class="modal-footer px-0 pb-0">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modalNuevaPreferencia')">Cancelar</button>
+            <button type="submit" class="btn btn-accent"><i class="fa-solid fa-plus"></i> Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR INTERACCIÓN -->
+  <div class="modal-overlay" id="modalNuevaInteraccion" onclick="closeModalOnBackdrop(event, 'modalNuevaInteraccion')">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-comment-dots text-purple"></i> Registrar Interacción / Contacto</h2>
+        <button class="modal-close-btn" onclick="closeModal('modalNuevaInteraccion')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNuevaInteraccion" onsubmit="guardarNuevaInteraccion(event)">
+          <div class="form-group">
+            <label for="interaccionClienteSelect">Cliente *</label>
+            <select id="interaccionClienteSelect" class="form-control" required>
+              <option value="">Selecciona cliente...</option>
+              <!-- Injected via JS -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="interaccionTipo">Tipo de Contacto *</label>
+            <select id="interaccionTipo" class="form-control" required>
+              <option value="WhatsApp Comercial">WhatsApp Comercial</option>
+              <option value="Aviso Talla Agotada">Aviso Talla Agotada / Reservada</option>
+              <option value="Llamada Telefónica">Llamada Telefónica</option>
+              <option value="Felicitación Cumpleaños">Felicitación Cumpleaños</option>
+              <option value="Consulta Stock">Consulta Stock en Mostrador</option>
+              <option value="Reclamación">Reclamación / Garantía</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="interaccionComentarios">Comentarios y Detalles *</label>
+            <textarea id="interaccionComentarios" class="form-control" rows="3" placeholder="Detalle de lo hablado con el cliente o modelo reservado..." required></textarea>
+          </div>
+          <div class="modal-footer px-0 pb-0">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modalNuevaInteraccion')">Cancelar</button>
+            <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Guardar Registro</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: NUEVO MODELO DE CALZADO -->
+  <div class="modal-overlay" id="modalNuevoProducto" onclick="closeModalOnBackdrop(event, 'modalNuevoProducto')">
+    <div class="modal-content modal-md">
+      <div class="modal-header">
+        <h2><i class="fa-solid fa-boxes-stacked text-amber"></i> Añadir Nuevo Modelo de Calzado</h2>
+        <button class="modal-close-btn" onclick="closeModal('modalNuevoProducto')"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNuevoProducto" onsubmit="guardarNuevoProducto(event)">
+          <div class="form-group">
+            <label for="prodNombre">Nombre del Modelo *</label>
+            <input type="text" id="prodNombre" class="form-control" placeholder="Ej. Sandalia Piel Cuña Verano" required>
+          </div>
+          <div class="two-columns-grid">
+            <div class="form-group">
+              <label for="prodMarca">Marca *</label>
+              <input type="text" id="prodMarca" class="form-control" placeholder="Ej. Pikolinos, Clarks" required>
+            </div>
+            <div class="form-group">
+              <label for="prodCategoria">Categoría *</label>
+              <select id="prodCategoria" class="form-control">
+                <option value="Hombre">Hombre</option>
+                <option value="Mujer">Mujer</option>
+                <option value="Unisex">Unisex</option>
+                <option value="Infantil">Infantil</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="prodPrecio">Precio Base (€) *</label>
+            <input type="number" id="prodPrecio" class="form-control" step="0.01" min="1" placeholder="99.95" required>
+          </div>
+
+          <div class="card p-3 bg-subtle mb-3">
+            <h4 class="text-sm font-semibold mb-2"><i class="fa-solid fa-list-check"></i> Variantes Iniciales (Talla, Color y Stock)</h4>
+            <div class="three-columns-grid">
+              <div class="form-group mb-0">
+                <label>Tallas (sep. comas)</label>
+                <input type="text" id="prodTallasList" class="form-control" placeholder="38, 39, 40" value="38, 39, 40">
+              </div>
+              <div class="form-group mb-0">
+                <label>Color</label>
+                <input type="text" id="prodColor" class="form-control" placeholder="Negro" value="Negro">
+              </div>
+              <div class="form-group mb-0">
+                <label>Stock por talla</label>
+                <input type="number" id="prodStockInit" class="form-control" min="0" value="4">
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer px-0 pb-0">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modalNuevoProducto')">Cancelar</button>
+            <button type="submit" class="btn btn-accent"><i class="fa-solid fa-save"></i> Guardar Producto</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- WATERMARK (FROM REFERENCE IMAGE) -->
+  <div class="dashboard-watermark">//</div>
+
+  <!-- JAVASCRIPT APP -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
