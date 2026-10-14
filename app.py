@@ -27,21 +27,21 @@ def get_dashboard():
     cursor = conn.cursor()
 
     # Métricas generales
-    cursor.execute("SELECT COUNT(*) FROM clientes")
-    total_clientes = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) AS total FROM clientes")
+    total_clientes = cursor.fetchone()['total']
 
-    cursor.execute("SELECT COALESCE(SUM(total), 0), COUNT(*) FROM ventas")
+    cursor.execute("SELECT COALESCE(SUM(total), 0) AS ingresos, COUNT(*) AS pedidos FROM ventas")
     ventas_total_row = cursor.fetchone()
-    total_ingresos = float(ventas_total_row[0])
-    total_pedidos = ventas_total_row[1]
+    total_ingresos = float(ventas_total_row['ingresos'])
+    total_pedidos = ventas_total_row['pedidos']
     ticket_medio = round(total_ingresos / total_pedidos, 2) if total_pedidos > 0 else 0.0
 
     # Ventas de los últimos 30 días
     cursor.execute("""
-        SELECT COALESCE(SUM(total), 0) FROM ventas
-        WHERE fecha_venta >= datetime('now', '-30 day')
+        SELECT COALESCE(SUM(total), 0) AS ventas_mes FROM ventas
+        WHERE fecha_venta >= NOW() - INTERVAL '30 days'
     """)
-    ventas_mes = float(cursor.fetchone()[0])
+    ventas_mes = float(cursor.fetchone()['ventas_mes'])
 
     # Distribución por segmento RFM
     cursor.execute("""
@@ -77,7 +77,7 @@ def get_dashboard():
         SELECT id_cliente, nombre, fecha_nacimiento, telefono, email, categoria_cliente
         FROM clientes
         WHERE fecha_nacimiento IS NOT NULL
-        ORDER BY strftime('%m-%d', fecha_nacimiento) ASC
+        ORDER BY to_char(fecha_nacimiento, 'MM-DD') ASC
         LIMIT 5
     """)
     cumpleanos = [dict(row) for row in cursor.fetchall()]
@@ -126,20 +126,20 @@ def get_clientes():
     params = []
 
     if search:
-        query += " AND (c.nombre LIKE ? OR c.telefono LIKE ? OR c.email LIKE ?)"
+        query += " AND (c.nombre LIKE %s OR c.telefono LIKE %s OR c.email LIKE %s)"
         term = f"%{search}%"
         params.extend([term, term, term])
 
     if categoria:
-        query += " AND c.categoria_cliente = ?"
+        query += " AND c.categoria_cliente = %s"
         params.append(categoria)
 
     if talla:
-        query += " AND p.talla_habitual = ?"
+        query += " AND p.talla_habitual = %s"
         params.append(talla)
 
     if marca:
-        query += " AND p.marca_favorita LIKE ?"
+        query += " AND p.marca_favorita LIKE %s"
         params.append(f"%{marca}%")
 
     query += " ORDER BY c.score_total DESC, c.nombre ASC"
@@ -151,7 +151,7 @@ def get_clientes():
     for c in clientes_raw:
         c_dict = dict(c)
         # Buscar preferencias asociadas
-        cursor.execute("SELECT * FROM preferencias_cliente WHERE id_cliente = ?", (c['id_cliente'],))
+        cursor.execute("SELECT * FROM preferencias_cliente WHERE id_cliente = %s", (c['id_cliente'],))
         c_dict['preferencias'] = [dict(p) for p in cursor.fetchall()]
         clientes_list.append(c_dict)
 
@@ -163,7 +163,7 @@ def get_cliente_detalle(id_cliente):
     conn = database.get_db()
     cursor = conn.cursor()
 
-    cursor.execute("SELECT * FROM clientes WHERE id_cliente = ?", (id_cliente,))
+    cursor.execute("SELECT * FROM clientes WHERE id_cliente = %s", (id_cliente,))
     cliente = cursor.fetchone()
     if not cliente:
         conn.close()
@@ -172,7 +172,7 @@ def get_cliente_detalle(id_cliente):
     cliente_dict = dict(cliente)
 
     # Preferencias
-    cursor.execute("SELECT * FROM preferencias_cliente WHERE id_cliente = ?", (id_cliente,))
+    cursor.execute("SELECT * FROM preferencias_cliente WHERE id_cliente = %s", (id_cliente,))
     cliente_dict['preferencias'] = [dict(p) for p in cursor.fetchall()]
 
     # Historial de compras
@@ -180,7 +180,7 @@ def get_cliente_detalle(id_cliente):
         SELECT v.*, COUNT(dv.id_detalle) as total_articulos
         FROM ventas v
         LEFT JOIN detalles_venta dv ON v.id_venta = dv.id_venta
-        WHERE v.id_cliente = ?
+        WHERE v.id_cliente = %s
         GROUP BY v.id_venta
         ORDER BY v.fecha_venta DESC
     """, (id_cliente,))
@@ -192,7 +192,7 @@ def get_cliente_detalle(id_cliente):
             FROM detalles_venta dv
             JOIN variantes_stock vs ON dv.id_variante = vs.id_variante
             JOIN productos p ON vs.id_producto = p.id_producto
-            WHERE dv.id_venta = ?
+            WHERE dv.id_venta = %s
         """, (v['id_venta'],))
         v_dict['detalles'] = [dict(d) for d in cursor.fetchall()]
         ventas.append(v_dict)
@@ -201,7 +201,7 @@ def get_cliente_detalle(id_cliente):
     # Historial de interacciones
     cursor.execute("""
         SELECT * FROM interacciones
-        WHERE id_cliente = ?
+        WHERE id_cliente = %s
         ORDER BY fecha DESC
     """, (id_cliente,))
     cliente_dict['interacciones'] = [dict(i) for i in cursor.fetchall()]
@@ -252,14 +252,15 @@ def create_cliente():
 
     cursor.execute("""
         INSERT INTO clientes (nombre, telefono, email, fecha_nacimiento, observaciones)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id_cliente
     """, (nombre, telefono, email, fecha_nacimiento, observaciones))
-    id_cliente = cursor.lastrowid
+    id_cliente = cursor.fetchone()['id_cliente']
 
     for pref in preferencias:
         cursor.execute("""
             INSERT INTO preferencias_cliente (id_cliente, categoria_calzado, talla_habitual, marca_favorita)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         """, (id_cliente, pref.get('categoria_calzado'), pref.get('talla_habitual'), pref.get('marca_favorita')))
 
     conn.commit()
@@ -286,8 +287,8 @@ def update_cliente(id_cliente):
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE clientes
-        SET nombre = ?, telefono = ?, email = ?, fecha_nacimiento = ?, observaciones = ?
-        WHERE id_cliente = ?
+        SET nombre = %s, telefono = %s, email = %s, fecha_nacimiento = %s, observaciones = %s
+        WHERE id_cliente = %s
     """, (nombre, telefono, email, fecha_nacimiento, observaciones, id_cliente))
     conn.commit()
     conn.close()
@@ -298,7 +299,7 @@ def update_cliente(id_cliente):
 def delete_cliente(id_cliente):
     conn = database.get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM clientes WHERE id_cliente = ?", (id_cliente,))
+    cursor.execute("DELETE FROM clientes WHERE id_cliente = %s", (id_cliente,))
     conn.commit()
     conn.close()
     return jsonify({"message": "Cliente eliminado con éxito"})
@@ -315,9 +316,10 @@ def add_preferencia(id_cliente):
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO preferencias_cliente (id_cliente, categoria_calzado, talla_habitual, marca_favorita)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id_preferencia
     """, (id_cliente, categoria_calzado, talla_habitual, marca_favorita))
-    id_pref = cursor.lastrowid
+    id_pref = cursor.fetchone()['id_preferencia']
     conn.commit()
     conn.close()
     return jsonify({"message": "Preferencia guardada", "id_preferencia": id_pref}), 201
@@ -326,7 +328,7 @@ def add_preferencia(id_cliente):
 def delete_preferencia(id_preferencia):
     conn = database.get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM preferencias_cliente WHERE id_preferencia = ?", (id_preferencia,))
+    cursor.execute("DELETE FROM preferencias_cliente WHERE id_preferencia = %s", (id_preferencia,))
     conn.commit()
     conn.close()
     return jsonify({"message": "Preferencia eliminada"})
@@ -364,7 +366,7 @@ def get_productos():
     productos = []
     for p in cursor.fetchall():
         p_dict = dict(p)
-        cursor.execute("SELECT * FROM variantes_stock WHERE id_producto = ? ORDER BY talla ASC, color ASC", (p['id_producto'],))
+        cursor.execute("SELECT * FROM variantes_stock WHERE id_producto = %s ORDER BY talla ASC, color ASC", (p['id_producto'],))
         p_dict['variantes'] = [dict(v) for v in cursor.fetchall()]
         productos.append(p_dict)
 
@@ -388,9 +390,10 @@ def create_producto():
 
     cursor.execute("""
         INSERT INTO productos (nombre_modelo, marca, categoria, precio_base)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id_producto
     """, (nombre, marca, categoria, precio))
-    id_producto = cursor.lastrowid
+    id_producto = cursor.fetchone()['id_producto']
 
     for v in variantes:
         talla = str(v.get('talla', '')).strip()
@@ -399,7 +402,7 @@ def create_producto():
         sku = v.get('sku') or f"ZAP-{id_producto}-{talla}-{color[:3].upper()}-{datetime.now().strftime('%f')[:4]}"
         cursor.execute("""
             INSERT INTO variantes_stock (id_producto, talla, color, stock_actual, sku)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """, (id_producto, talla, color, stock, sku))
 
     conn.commit()
@@ -418,8 +421,8 @@ def update_producto(id_producto):
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE productos
-        SET nombre_modelo = ?, marca = ?, categoria = ?, precio_base = ?
-        WHERE id_producto = ?
+        SET nombre_modelo = %s, marca = %s, categoria = %s, precio_base = %s
+        WHERE id_producto = %s
     """, (nombre, marca, categoria, precio, id_producto))
     conn.commit()
     conn.close()
@@ -429,7 +432,7 @@ def update_producto(id_producto):
 def delete_producto(id_producto):
     conn = database.get_db()
     cursor = conn.cursor()
-    cursor.execute("DELETE FROM productos WHERE id_producto = ?", (id_producto,))
+    cursor.execute("DELETE FROM productos WHERE id_producto = %s", (id_producto,))
     conn.commit()
     conn.close()
     return jsonify({"message": "Producto eliminado"})
@@ -464,9 +467,10 @@ def add_variante():
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO variantes_stock (id_producto, talla, color, stock_actual, sku)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id_variante
     """, (id_producto, talla, color, stock, sku))
-    id_var = cursor.lastrowid
+    id_var = cursor.fetchone()['id_variante']
     conn.commit()
     conn.close()
     return jsonify({"message": "Variante agregada", "id_variante": id_var}), 201
@@ -478,7 +482,7 @@ def update_stock_variante(id_variante):
 
     conn = database.get_db()
     cursor = conn.cursor()
-    cursor.execute("UPDATE variantes_stock SET stock_actual = ? WHERE id_variante = ?", (nuevo_stock, id_variante))
+    cursor.execute("UPDATE variantes_stock SET stock_actual = %s WHERE id_variante = %s", (nuevo_stock, id_variante))
     conn.commit()
     conn.close()
     return jsonify({"message": "Stock actualizado"})
@@ -503,7 +507,7 @@ def get_ventas():
             FROM detalles_venta dv
             JOIN variantes_stock vs ON dv.id_variante = vs.id_variante
             JOIN productos p ON vs.id_producto = p.id_producto
-            WHERE dv.id_venta = ?
+            WHERE dv.id_venta = %s
         """, (v['id_venta'],))
         v_dict['items'] = [dict(d) for d in cursor.fetchall()]
         ventas.append(v_dict)
@@ -527,7 +531,7 @@ def create_venta():
     # Validar stock disponible
     total_venta = 0.0
     for item in items:
-        cursor.execute("SELECT stock_actual, p.precio_base FROM variantes_stock v JOIN productos p ON v.id_producto = p.id_producto WHERE v.id_variante = ?", (item['id_variante'],))
+        cursor.execute("SELECT stock_actual, p.precio_base FROM variantes_stock v JOIN productos p ON v.id_producto = p.id_producto WHERE v.id_variante = %s", (item['id_variante'],))
         row = cursor.fetchone()
         if not row:
             conn.close()
@@ -545,22 +549,23 @@ def create_venta():
     # Insertar Venta
     cursor.execute("""
         INSERT INTO ventas (id_cliente, fecha_venta, total, metodo_pago)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id_venta
     """, (id_cliente, ahora_str, total_venta, metodo_pago))
-    id_venta = cursor.lastrowid
+    id_venta = cursor.fetchone()['id_venta']
 
     # Insertar Detalles y descontar stock
     for item in items:
         pu = float(item.get('precio_unitario', 0.0))
         cursor.execute("""
             INSERT INTO detalles_venta (id_venta, id_variante, cantidad, precio_unitario)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         """, (id_venta, item['id_variante'], item['cantidad'], pu))
 
         cursor.execute("""
             UPDATE variantes_stock
-            SET stock_actual = stock_actual - ?
-            WHERE id_variante = ?
+            SET stock_actual = stock_actual - %s
+            WHERE id_variante = %s
         """, (item['cantidad'], item['id_variante']))
 
     conn.commit()
@@ -606,9 +611,10 @@ def create_interaccion():
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO interacciones (id_cliente, tipo, comentarios, fecha)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
+        RETURNING id_interaccion
     """, (id_cliente, tipo, comentarios, fecha))
-    id_interaccion = cursor.lastrowid
+    id_interaccion = cursor.fetchone()['id_interaccion']
     conn.commit()
     conn.close()
     return jsonify({"message": "Interacción registrada", "id_interaccion": id_interaccion}), 201
@@ -632,13 +638,13 @@ def matching_calzado():
     """
     params = []
     if talla:
-        query += " AND p.talla_habitual = ?"
+        query += " AND p.talla_habitual = %s"
         params.append(talla)
     if marca:
-        query += " AND (p.marca_favorita LIKE ? OR ? LIKE '%' || p.marca_favorita || '%')"
+        query += " AND (p.marca_favorita LIKE %s OR %s LIKE '%%' || p.marca_favorita || '%%')"
         params.extend([f"%{marca}%", marca])
     if categoria:
-        query += " AND (p.categoria_calzado LIKE ?)"
+        query += " AND (p.categoria_calzado LIKE %s)"
         params.append(f"%{categoria}%")
 
     query += " ORDER BY c.score_total DESC, c.nombre ASC"
@@ -670,8 +676,8 @@ def update_regla_scoring(id_regla):
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE reglas_scoring
-        SET rango_min = ?, rango_max = ?, puntos_asignados = ?, descripcion = ?
-        WHERE id_regla = ?
+        SET rango_min = %s, rango_max = %s, puntos_asignados = %s, descripcion = %s
+        WHERE id_regla = %s
     """, (rango_min, rango_max, puntos, descripcion, id_regla))
     conn.commit()
     conn.close()

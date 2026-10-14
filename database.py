@@ -1,21 +1,32 @@
-import sqlite3
 import os
-import tempfile
 from datetime import datetime, timedelta
 import random
 
-# En Vercel (serverless) el directorio del proyecto es de solo lectura,
-# solo /tmp es escribible. Usamos una ruta configurable para poder desplegar.
-_default_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "crm_zapateria.db")
-if os.environ.get("VERCEL"):
-    _default_db = os.path.join(tempfile.gettempdir(), "crm_zapateria.db")
-DB_FILE = os.environ.get("CRM_DB_FILE", _default_db)
+import psycopg2
+from psycopg2.extras import RealDictCursor
+
+# Cadena de conexión de Supabase (PostgreSQL).
+# Configúrala en Vercel y en local como variable de entorno DATABASE_URL.
+# Ejemplo (Connection string -> URI de Supabase, usa el pooler en serverless):
+#   postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL")
+
+
+def _with_ssl(url):
+    # Supabase exige SSL; solo lo forzamos para hosts de Supabase.
+    if url and "sslmode=" not in url and "supabase." in url:
+        url += ("&" if "?" in url else "?") + "sslmode=require"
+    return url
+
 
 def get_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "Falta la variable de entorno DATABASE_URL con la cadena de conexión "
+            "de Supabase (Project Settings > Database > Connection string)."
+        )
+    return psycopg2.connect(_with_ssl(DATABASE_URL), cursor_factory=RealDictCursor)
+
 
 def init_db():
     conn = get_db()
@@ -24,7 +35,7 @@ def init_db():
     # Tabla clientes
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS clientes (
-        id_cliente INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_cliente SERIAL PRIMARY KEY,
         nombre VARCHAR(100) NOT NULL,
         telefono VARCHAR(20),
         email VARCHAR(100),
@@ -43,19 +54,18 @@ def init_db():
     # Tabla preferencias_cliente
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS preferencias_cliente (
-        id_preferencia INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_cliente INTEGER NOT NULL,
+        id_preferencia SERIAL PRIMARY KEY,
+        id_cliente INTEGER NOT NULL REFERENCES clientes(id_cliente) ON DELETE CASCADE,
         categoria_calzado VARCHAR(50),
         talla_habitual VARCHAR(10),
-        marca_favorita VARCHAR(50),
-        FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente) ON DELETE CASCADE
+        marca_favorita VARCHAR(50)
     )
     """)
 
     # Tabla productos
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS productos (
-        id_producto INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_producto SERIAL PRIMARY KEY,
         nombre_modelo VARCHAR(100) NOT NULL,
         marca VARCHAR(50) NOT NULL,
         categoria VARCHAR(50) NOT NULL,
@@ -66,57 +76,52 @@ def init_db():
     # Tabla variantes_stock
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS variantes_stock (
-        id_variante INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_producto INTEGER NOT NULL,
+        id_variante SERIAL PRIMARY KEY,
+        id_producto INTEGER NOT NULL REFERENCES productos(id_producto) ON DELETE CASCADE,
         talla VARCHAR(10) NOT NULL,
         color VARCHAR(30) NOT NULL,
         stock_actual INTEGER NOT NULL DEFAULT 0,
-        sku VARCHAR(50) UNIQUE,
-        FOREIGN KEY (id_producto) REFERENCES productos(id_producto) ON DELETE CASCADE
+        sku VARCHAR(50) UNIQUE
     )
     """)
 
     # Tabla ventas
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS ventas (
-        id_venta INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_cliente INTEGER NOT NULL,
+        id_venta SERIAL PRIMARY KEY,
+        id_cliente INTEGER NOT NULL REFERENCES clientes(id_cliente),
         fecha_venta TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         total DECIMAL(8,2) NOT NULL,
-        metodo_pago VARCHAR(30) NOT NULL,
-        FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente)
+        metodo_pago VARCHAR(30) NOT NULL
     )
     """)
 
     # Tabla detalles_venta
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS detalles_venta (
-        id_detalle INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_venta INTEGER NOT NULL,
-        id_variante INTEGER NOT NULL,
+        id_detalle SERIAL PRIMARY KEY,
+        id_venta INTEGER NOT NULL REFERENCES ventas(id_venta) ON DELETE CASCADE,
+        id_variante INTEGER NOT NULL REFERENCES variantes_stock(id_variante),
         cantidad INTEGER NOT NULL DEFAULT 1,
-        precio_unitario DECIMAL(8,2) NOT NULL,
-        FOREIGN KEY (id_venta) REFERENCES ventas(id_venta) ON DELETE CASCADE,
-        FOREIGN KEY (id_variante) REFERENCES variantes_stock(id_variante)
+        precio_unitario DECIMAL(8,2) NOT NULL
     )
     """)
 
     # Tabla interacciones
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS interacciones (
-        id_interaccion INTEGER PRIMARY KEY AUTOINCREMENT,
-        id_cliente INTEGER NOT NULL,
+        id_interaccion SERIAL PRIMARY KEY,
+        id_cliente INTEGER NOT NULL REFERENCES clientes(id_cliente) ON DELETE CASCADE,
         tipo VARCHAR(50) NOT NULL,
         comentarios TEXT,
-        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (id_cliente) REFERENCES clientes(id_cliente) ON DELETE CASCADE
+        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
     # Tabla reglas_scoring
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS reglas_scoring (
-        id_regla INTEGER PRIMARY KEY AUTOINCREMENT,
+        id_regla SERIAL PRIMARY KEY,
         criterio VARCHAR(50) NOT NULL,
         rango_min DECIMAL(10,2),
         rango_max DECIMAL(10,2),
@@ -128,10 +133,11 @@ def init_db():
     conn.commit()
     conn.close()
 
+
 def seed_reglas_scoring(conn):
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM reglas_scoring")
-    count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) AS total FROM reglas_scoring")
+    count = cursor.fetchone()['total']
     if count == 0:
         reglas = [
             # RECENCIA (Días desde última compra)
@@ -155,9 +161,10 @@ def seed_reglas_scoring(conn):
         ]
         cursor.executemany("""
             INSERT INTO reglas_scoring (criterio, rango_min, rango_max, puntos_asignados, descripcion)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """, reglas)
         conn.commit()
+
 
 def calcular_scoring_cliente(conn, id_cliente):
     cursor = conn.cursor()
@@ -165,11 +172,11 @@ def calcular_scoring_cliente(conn, id_cliente):
 
     # 1. Obtener métricas de compras del cliente
     cursor.execute("""
-        SELECT COUNT(id_venta) as total_compras,
-               COALESCE(SUM(total), 0) as gasto_total,
-               MAX(fecha_venta) as ultima_fecha
+        SELECT COUNT(id_venta) AS total_compras,
+               COALESCE(SUM(total), 0) AS gasto_total,
+               MAX(fecha_venta) AS ultima_fecha
         FROM ventas
-        WHERE id_cliente = ?
+        WHERE id_cliente = %s
     """, (id_cliente,))
     row = cursor.fetchone()
 
@@ -179,7 +186,9 @@ def calcular_scoring_cliente(conn, id_cliente):
 
     if ultima_fecha:
         try:
-            if 'T' in ultima_fecha:
+            if isinstance(ultima_fecha, datetime):
+                dt_venta = ultima_fecha.replace(tzinfo=None)
+            elif 'T' in ultima_fecha:
                 dt_venta = datetime.fromisoformat(ultima_fecha.replace('Z', ''))
             elif len(ultima_fecha) == 10:
                 dt_venta = datetime.strptime(ultima_fecha, "%Y-%m-%d")
@@ -242,13 +251,13 @@ def calcular_scoring_cliente(conn, id_cliente):
 
     cursor.execute("""
         UPDATE clientes
-        SET puntos_recencia = ?,
-            puntos_frecuencia = ?,
-            puntos_monto = ?,
-            score_total = ?,
-            categoria_cliente = ?,
-            ultima_actualizacion_score = ?
-        WHERE id_cliente = ?
+        SET puntos_recencia = %s,
+            puntos_frecuencia = %s,
+            puntos_monto = %s,
+            score_total = %s,
+            categoria_cliente = %s,
+            ultima_actualizacion_score = %s
+        WHERE id_cliente = %s
     """, (puntos_recencia, puntos_frecuencia, puntos_monto, score_total, categoria, hoy_str, id_cliente))
     conn.commit()
 
@@ -265,6 +274,7 @@ def calcular_scoring_cliente(conn, id_cliente):
         "ultima_actualizacion_score": hoy_str
     }
 
+
 def recalcular_todos(conn):
     cursor = conn.cursor()
     cursor.execute("SELECT id_cliente FROM clientes")
@@ -275,6 +285,7 @@ def recalcular_todos(conn):
         resultados.append(res)
     return resultados
 
+
 def seed_data():
     conn = get_db()
     cursor = conn.cursor()
@@ -282,8 +293,8 @@ def seed_data():
     seed_reglas_scoring(conn)
 
     # Si ya hay clientes, omitimos seed para no duplicar
-    cursor.execute("SELECT COUNT(*) FROM clientes")
-    if cursor.fetchone()[0] > 0:
+    cursor.execute("SELECT COUNT(*) AS total FROM clientes")
+    if cursor.fetchone()['total'] > 0:
         conn.close()
         return
 
@@ -305,9 +316,10 @@ def seed_data():
     for p in productos_data:
         cursor.execute("""
             INSERT INTO productos (nombre_modelo, marca, categoria, precio_base)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
+            RETURNING id_producto
         """, p)
-        prod_ids.append(cursor.lastrowid)
+        prod_ids.append(cursor.fetchone()['id_producto'])
 
     # 2. Variantes de Stock por Tallas y Colores
     # Para cada producto, generamos tallas habituales y stock
@@ -339,9 +351,10 @@ def seed_data():
                 stock = random.choice([0, 1, 2, 4, 6, 8, 12]) # Algunos en 0 o 1 para alertas
                 cursor.execute("""
                     INSERT INTO variantes_stock (id_producto, talla, color, stock_actual, sku)
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s)
+                    RETURNING id_variante
                 """, (pid, t, col, stock, sku))
-                variante_ids.append((cursor.lastrowid, pid, productos_data[i][3]))
+                variante_ids.append((cursor.fetchone()['id_variante'], pid, productos_data[i][3]))
 
     # 3. Clientes Realistas
     clientes_data = [
@@ -362,9 +375,10 @@ def seed_data():
         fecha_alta = (now - timedelta(days=dias_alta)).strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute("""
             INSERT INTO clientes (nombre, telefono, email, fecha_nacimiento, observaciones, fecha_creacion)
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            RETURNING id_cliente
         """, (*c, fecha_alta))
-        cliente_ids.append(cursor.lastrowid)
+        cliente_ids.append(cursor.fetchone()['id_cliente'])
 
     # 4. Preferencias de Cliente
     # (id_cliente, categoria_calzado, talla_habitual, marca_favorita)
@@ -386,7 +400,7 @@ def seed_data():
     ]
     cursor.executemany("""
         INSERT INTO preferencias_cliente (id_cliente, categoria_calzado, talla_habitual, marca_favorita)
-        VALUES (?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s)
     """, preferencias_data)
 
     # 5. Ventas Simuladas con Diferentes Días para Generar Diversidad de Scoring RFM
@@ -431,14 +445,15 @@ def seed_data():
 
             cursor.execute("""
                 INSERT INTO ventas (id_cliente, fecha_venta, total, metodo_pago)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id_venta
             """, (cid, fecha_v, round(total_v, 2), metodo))
-            vid = cursor.lastrowid
+            vid = cursor.fetchone()['id_venta']
 
             for v in vars_compradas:
                 cursor.execute("""
                     INSERT INTO detalles_venta (id_venta, id_variante, cantidad, precio_unitario)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s)
                 """, (vid, v[0], 1, v[2]))
 
     # 6. Interacciones iniciales
@@ -454,7 +469,7 @@ def seed_data():
         fecha_int = (now - timedelta(days=d_atras)).strftime("%Y-%m-%d %H:%M:%S")
         cursor.execute("""
             INSERT INTO interacciones (id_cliente, tipo, comentarios, fecha)
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
         """, (cid, tipo, coment, fecha_int))
 
     conn.commit()
@@ -462,6 +477,7 @@ def seed_data():
     # 7. Ejecutar cálculo inicial de scoring para todos los clientes
     recalcular_todos(conn)
     conn.close()
+
 
 if __name__ == "__main__":
     init_db()
