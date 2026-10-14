@@ -2,6 +2,19 @@ import os
 from datetime import datetime, timedelta
 import random
 
+# Cargar automáticamente variables de entorno desde .env si existe en el proyecto
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_path):
+    with open(_env_path, "r", encoding="utf-8") as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith("#") and "=" in _line:
+                _k, _v = _line.split("=", 1)
+                _k = _k.strip()
+                _v = _v.strip().strip("'\"")
+                if _k not in os.environ:
+                    os.environ[_k] = _v
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -9,7 +22,10 @@ from psycopg2.extras import RealDictCursor
 # Configúrala en Vercel y en local como variable de entorno DATABASE_URL.
 # Ejemplo (Connection string -> URI de Supabase, usa el pooler en serverless):
 #   postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
-DATABASE_URL = os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL")
+def get_database_url():
+    return os.environ.get("DATABASE_URL") or os.environ.get("SUPABASE_DB_URL")
+
+DATABASE_URL = get_database_url()
 
 
 def _with_ssl(url):
@@ -20,12 +36,14 @@ def _with_ssl(url):
 
 
 def get_db():
-    if not DATABASE_URL:
+    url = get_database_url() or DATABASE_URL
+    if not url:
         raise RuntimeError(
             "Falta la variable de entorno DATABASE_URL con la cadena de conexión "
-            "de Supabase (Project Settings > Database > Connection string)."
+            "de Supabase. Configúrala en un archivo .env en local o en Vercel "
+            "(Project Settings > Environment Variables)."
         )
-    return psycopg2.connect(_with_ssl(DATABASE_URL), cursor_factory=RealDictCursor)
+    return psycopg2.connect(_with_ssl(url), cursor_factory=RealDictCursor)
 
 
 def init_db():

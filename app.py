@@ -1,6 +1,5 @@
 import os
 from flask import Flask, render_template, request, jsonify
-import sqlite3
 from datetime import datetime
 import database
 
@@ -11,14 +10,40 @@ app = Flask(
     template_folder=os.path.join(BASE_DIR, 'templates')
 )
 
-# Inicializar BD al arrancar
-database.init_db()
-database.seed_data()
+# Inicializar BD al arrancar si la variable de entorno está presente
+try:
+    if database.get_database_url():
+        database.init_db()
+        database.seed_data()
+except Exception as e:
+    print(f"[Supabase] Aviso al inicializar base de datos: {e}")
 
-# ----------------- RUTAS DE PÁGINA -----------------
+# ----------------- RUTAS DE PÁGINA Y ESTADO -----------------
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Endpoint para verificar el estado de conexión con Supabase"""
+    try:
+        conn = database.get_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 AS ok")
+        cursor.fetchone()
+        conn.close()
+        return jsonify({
+            "status": "online",
+            "database": "conectada",
+            "motor": "PostgreSQL (Supabase)"
+        }), 200
+    except Exception as e:
+        return jsonify({
+            "status": "warning",
+            "database": "desconectada",
+            "mensaje": "Falta configurar DATABASE_URL de Supabase",
+            "detalle": str(e)
+        }), 503
 
 # ----------------- ENDPOINTS DASHBOARD -----------------
 @app.route('/api/dashboard', methods=['GET'])
